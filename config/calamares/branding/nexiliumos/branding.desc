@@ -1,6 +1,10 @@
 ---
 componentName: nexiliumos
 
+# Força a barra lateral clássica (ícone + texto por etapa), sem depender
+# de nenhum arquivo QML customizado que a gente não tem.
+sidebar: widget
+
 # Estilo de janela do welcome (mantém o padrão do Calamares, só troca textos/imagem)
 welcomeStyleCalamares: true
 welcomeExpandingLogo: true
