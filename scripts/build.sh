@@ -39,6 +39,10 @@ sudo cp config/packages.list     "$ROOTFS/tmp/packages.list"
 sudo cp scripts/chroot-setup.sh  "$ROOTFS/tmp/chroot-setup.sh"
 sudo chmod +x "$ROOTFS/tmp/chroot-setup.sh"
 
+echo "==> Copiando wallpaper padrão..."
+sudo mkdir -p "$ROOTFS/usr/share/backgrounds/nexiliumos"
+sudo cp assets/sla.png "$ROOTFS/usr/share/backgrounds/nexiliumos/sla.png"
+
 echo "==> Copiando configuração do Calamares (staging, aplicada depois do apt)..."
 # NÃO copiamos direto pra /etc/calamares aqui. O pacote calamares-settings-debian
 # (instalado como Recommends do pacote calamares) tem um post-install script
