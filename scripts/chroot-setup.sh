@@ -67,6 +67,79 @@ if [ -f /usr/share/applications/calamares.desktop ]; then
     sed -i '/^Name\[.*\]=/d' /usr/share/applications/calamares.desktop
 fi
 
+echo "==> Instalando script de wallpaper (roda no primeiro login, detecta o DE)..."
+# Esse script cobre todo mundo que pode acabar no sistema final: o KDE
+# Plasma que já vem pronto no squashfs, E qualquer um dos outros DEs
+# escolhidos via netinstall.yaml no instalador online (que só existem
+# depois da instalação, não no momento do build). Por isso ele roda via
+# autostart no primeiro login em vez de ser configurado estaticamente
+# aqui — nesse ponto do build ainda não sabemos qual DE a pessoa vai
+# escolher.
+cat > /usr/local/bin/nexiliumos-wallpaper.sh << 'WALLPAPER_SCRIPT'
+#!/usr/bin/env bash
+# NexiliumOS - aplica o wallpaper padrão no ambiente desktop detectado.
+# Roda uma vez no primeiro login; a entrada de autostart se remove
+# sozinha no final pra não sobrescrever wallpaper trocado pelo usuário
+# depois.
+set -uo pipefail
+
+WALLPAPER="/usr/share/backgrounds/nexiliumos/sla.png"
+DE="${XDG_CURRENT_DESKTOP:-${DESKTOP_SESSION:-}}"
+DE_LOWER="$(echo "$DE" | tr '[:upper:]' '[:lower:]')"
+
+case "$DE_LOWER" in
+    *kde*|*plasma*)
+        command -v plasma-apply-wallpaperimage >/dev/null 2>&1 && \
+            plasma-apply-wallpaperimage "$WALLPAPER"
+        ;;
+    *cinnamon*)
+        command -v gsettings >/dev/null 2>&1 && \
+            gsettings set org.cinnamon.desktop.background picture-uri "file://$WALLPAPER"
+        ;;
+    *mate*)
+        command -v gsettings >/dev/null 2>&1 && \
+            gsettings set org.mate.background picture-filename "$WALLPAPER"
+        ;;
+    *xfce*)
+        if command -v xfconf-query >/dev/null 2>&1; then
+            for prop in $(xfconf-query -c xfce4-desktop -l 2>/dev/null | grep last-image); do
+                xfconf-query -c xfce4-desktop -p "$prop" -s "$WALLPAPER"
+            done
+        fi
+        ;;
+    *lxqt*)
+        command -v pcmanfm-qt >/dev/null 2>&1 && \
+            pcmanfm-qt --set-wallpaper="$WALLPAPER" 2>/dev/null
+        ;;
+    *lxde*)
+        command -v pcmanfm >/dev/null 2>&1 && \
+            pcmanfm --set-wallpaper="$WALLPAPER" 2>/dev/null
+        ;;
+    *gnome*|*budgie*|*unity*|*)
+        # Fallback pro schema do GNOME: cobre GNOME e Budgie (que usa o
+        # mesmo backend gsettings), e serve de default genérico caso
+        # XDG_CURRENT_DESKTOP não seja reconhecido acima.
+        command -v gsettings >/dev/null 2>&1 && {
+            gsettings set org.gnome.desktop.background picture-uri "file://$WALLPAPER"
+            gsettings set org.gnome.desktop.background picture-uri-dark "file://$WALLPAPER" 2>/dev/null || true
+        }
+        ;;
+esac
+
+rm -f "$HOME/.config/autostart/nexiliumos-wallpaper.desktop"
+WALLPAPER_SCRIPT
+chmod +x /usr/local/bin/nexiliumos-wallpaper.sh
+
+mkdir -p /etc/skel/.config/autostart
+cat > /etc/skel/.config/autostart/nexiliumos-wallpaper.desktop << 'AUTOSTART'
+[Desktop Entry]
+Type=Application
+Name=NexiliumOS Wallpaper
+Exec=/usr/local/bin/nexiliumos-wallpaper.sh
+X-GNOME-Autostart-enabled=true
+NoDisplay=true
+AUTOSTART
+
 echo "==> Liberando o Calamares sem pedir senha (usuários do grupo sudo)..."
 mkdir -p /etc/polkit-1/rules.d
 cat > /etc/polkit-1/rules.d/45-nexilium-calamares.rules << 'POLKIT'
