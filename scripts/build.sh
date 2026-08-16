@@ -29,8 +29,8 @@ trap cleanup_mounts EXIT
 # Limpa mounts antigos se existirem (ex: execução anterior interrompida)
 cleanup_mounts
 
-echo "==> Bootstrap Debian Trixie..."
-sudo debootstrap --arch=amd64 trixie "$ROOTFS" http://deb.debian.org/debian
+echo "==> Bootstrap Debian Sid..."
+sudo debootstrap --arch=amd64 sid "$ROOTFS" http://deb.debian.org/debian
 
 echo "==> Copiando configs..."
 sudo cp config/sources.list      "$ROOTFS/etc/apt/sources.list"
