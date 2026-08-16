@@ -52,19 +52,55 @@ fi
 locale-gen
 update-locale LANG=en_US.UTF-8 LANGUAGE=en_US:en
 
+echo "==> Criando launcher que pergunta offline/online antes do Calamares (estilo Artix)..."
+# Em vez de abrir o Calamares direto, o atalho chama esse wrapper. Ele
+# mostra um diálogo simples (kdialog, já que o live é sempre KDE) com
+# as duas opções e escolhe qual settings.conf carregar: o online (com
+# a página de troca de DE via netinstall) ou o offline (sem ela, direto
+# pro KDE Plasma do squashfs). Isso evita de vez a página do netinstall
+# aparecer desabilitada quando não há internet — nesse modo ela nem
+# existe na sequência.
+cat > /usr/local/bin/nexiliumos-installer << 'INSTALLER_LAUNCHER'
+#!/usr/bin/env bash
+set -uo pipefail
+
+CHOICE="$(kdialog --menu "Selecione o método de instalação do NexiliumOS:" \
+    offline "Offline (usa o KDE Plasma que já vem pronto na imagem)" \
+    online  "Online (baixa a lista de pacotes e permite escolher outro ambiente desktop)")"
+
+# kdialog retorna código != 0 se a pessoa cancelar/fechar o diálogo.
+if [ $? -ne 0 ] || [ -z "$CHOICE" ]; then
+    exit 0
+fi
+
+case "$CHOICE" in
+    offline) SETTINGS="/etc/calamares/settings-offline.conf" ;;
+    online)  SETTINGS="/etc/calamares/settings-online.conf" ;;
+    *)       exit 1 ;;
+esac
+
+exec pkexec calamares -c "$SETTINGS"
+INSTALLER_LAUNCHER
+chmod +x /usr/local/bin/nexiliumos-installer
+
 echo "==> Criando atalho do instalador na área de trabalho..."
 mkdir -p /etc/skel/Desktop
 if [ -f /usr/share/applications/calamares.desktop ]; then
     cp /usr/share/applications/calamares.desktop /etc/skel/Desktop/calamares.desktop
     # Troca o nome exibido no ícone/menu de "Install Debian" pra
     # "Install NexiliumOS" (o pacote calamares do Debian traz esse Name=
-    # hardcoded no .desktop; sobrescrevemos aqui).
+    # hardcoded no .desktop; sobrescrevemos aqui). Troca também o Exec=
+    # pro nosso launcher, em vez de chamar o calamares direto — é ele
+    # quem decide (via pkexec) qual settings.conf abrir depois da
+    # escolha offline/online.
     sed -i 's/^Name=.*/Name=Install NexiliumOS/' /etc/skel/Desktop/calamares.desktop
     sed -i '/^Name\[.*\]=/d' /etc/skel/Desktop/calamares.desktop
+    sed -i 's#^Exec=.*#Exec=/usr/local/bin/nexiliumos-installer#' /etc/skel/Desktop/calamares.desktop
     chmod +x /etc/skel/Desktop/calamares.desktop
     # Faz o mesmo no launcher do menu de aplicativos, não só no atalho da área de trabalho
     sed -i 's/^Name=.*/Name=Install NexiliumOS/' /usr/share/applications/calamares.desktop
     sed -i '/^Name\[.*\]=/d' /usr/share/applications/calamares.desktop
+    sed -i 's#^Exec=.*#Exec=/usr/local/bin/nexiliumos-installer#' /usr/share/applications/calamares.desktop
 fi
 
 echo "==> Instalando script de wallpaper (roda no primeiro login, detecta o DE)..."
@@ -144,11 +180,28 @@ echo "==> Liberando o Calamares sem pedir senha (usuários do grupo sudo)..."
 mkdir -p /etc/polkit-1/rules.d
 cat > /etc/polkit-1/rules.d/45-nexilium-calamares.rules << 'POLKIT'
 polkit.addRule(function(action, subject) {
+    if (!subject.isInGroup("sudo")) {
+        return polkit.Result.NOT_HANDLED;
+    }
+
+    // Caso 1: pkexec genérico chamando o binário do calamares diretamente.
     if (action.id == "org.freedesktop.policykit.exec" &&
-        action.lookup("program").indexOf("calamares") !== -1 &&
-        subject.isInGroup("sudo")) {
+        action.lookup("program") &&
+        action.lookup("program").indexOf("calamares") !== -1) {
         return polkit.Result.YES;
     }
+
+    // Caso 2: ação de polkit dedicada registrada pelo próprio pacote
+    // calamares (ex: org.calamares.calamares.pkexec.run ou variante
+    // debianizada). O .desktop do pacote calamares "puro" (diferente do
+    // calamares-settings-debian, que a gente purga) costuma usar um
+    // wrapper que dispara uma ação com ID próprio em vez de pkexec
+    // genérico — a regra do Caso 1 sozinha não cobre isso.
+    if (action.id.toLowerCase().indexOf("calamares") !== -1) {
+        return polkit.Result.YES;
+    }
+
+    return polkit.Result.NOT_HANDLED;
 });
 POLKIT
 
