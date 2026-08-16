@@ -55,6 +55,7 @@ PACKAGES=(
     # Instalador
     calamares
     calamares-settings-debian
+    kdialog
     parted
     dosfstools
     rsync
