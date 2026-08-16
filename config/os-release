@@ -2,5 +2,5 @@ NAME="NexiliumOS"
 VERSION="0.1"
 ID=nexiliumos
 ID_LIKE=debian
-PRETTY_NAME="NexiliumOS 0.1 (Trixie)"
+PRETTY_NAME="NexiliumOS Rolling"
 HOME_URL="https://github.com/zanfss0/NexiliumOS"
