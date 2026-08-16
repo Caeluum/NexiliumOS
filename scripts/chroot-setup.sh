@@ -18,9 +18,11 @@ source /tmp/packages.list
 echo "==> Instalando todos os pacotes do NexiliumOS (${#PACKAGES[@]} pacotes)..."
 apt-get install -y "${PACKAGES[@]}"
 
-echo "==> Removendo o SDDM que veio junto do KDE (usamos GDM como display manager)..."
-systemctl disable sddm 2>/dev/null || true
-apt-get purge -y sddm 2>/dev/null || true
+echo "==> Removendo o gdm3 (não usamos mais — sid o entrelaçou com o gnome-shell)..."
+# gdm3 não é instalado a essa altura (trocamos por sddm no packages.list),
+# mas o task-kde-desktop pode puxar alguma dependência que sugira ele.
+# Purga defensiva, sem quebrar o build se ele nem estiver presente.
+apt-get purge -y gdm3 2>/dev/null || true
 
 echo "==> Removendo calamares-settings-debian e aplicando nossa config do Calamares..."
 # Esse pacote briga com nossos arquivos em /etc/calamares (o post-install
@@ -37,10 +39,7 @@ else
     echo "AVISO: /tmp/calamares-config não encontrado, Calamares ficará com config incompleta." >&2
 fi
 
-echo "gdm3 shared/default-x-display-manager select gdm3" | debconf-set-selections
-dpkg-reconfigure gdm3
-
-echo "==> Gerando locales (sem isso o KDE/GDM podem crashar ao subir a sessão)..."
+echo "==> Gerando locales (sem isso o KDE/SDDM podem crashar ao subir a sessão)..."
 sed -i 's/^# *\(en_US.UTF-8 UTF-8\)/\1/' /etc/locale.gen
 sed -i 's/^# *\(pt_BR.UTF-8 UTF-8\)/\1/' /etc/locale.gen
 if ! grep -q "^en_US.UTF-8 UTF-8" /etc/locale.gen; then
@@ -212,35 +211,34 @@ usermod -aG sudo,audio,video,plugdev liveuser
 
 echo "==> Habilitando login sem senha para liveuser via PAM (grupo nopasswdlogin)..."
 # IMPORTANTE: ao contrário do Ubuntu, o Debian NÃO reconhece o grupo
-# "nopasswdlogin" nativamente. Sem essa regra no PAM do GDM, o AutomaticLogin
-# ainda funciona para o primeiro boot, mas qualquer prompt de senha do GDM
+# "nopasswdlogin" nativamente. Sem essa regra no PAM do SDDM, o AutomaticLogin
+# ainda funciona para o primeiro boot, mas qualquer prompt de senha do SDDM
 # (troca de usuário, tela de bloqueio, etc.) continuaria pedindo senha
 # mesmo com o usuário no grupo. Por isso adicionamos a regra manualmente.
 groupadd -f nopasswdlogin
 usermod -aG nopasswdlogin liveuser
 
-for pamfile in gdm-password gdm-autologin; do
+# Nomes de arquivo PAM variam entre versões do pacote sddm no Debian
+# (às vezes usa um serviço dedicado "sddm-autologin", às vezes reaproveita
+# o "sddm" genérico pra tudo) — cobrimos as três possibilidades, cada
+# uma só é tocada se existir.
+for pamfile in sddm sddm-autologin sddm-greeter; do
     if [ -f "/etc/pam.d/${pamfile}" ] && ! grep -q "pam_succeed_if.so user ingroup nopasswdlogin" "/etc/pam.d/${pamfile}"; then
         sed -i '0,/^auth/s//auth\tsufficient\tpam_succeed_if.so user ingroup nopasswdlogin\nauth/' "/etc/pam.d/${pamfile}"
     fi
 done
 
-echo "==> Configurando autologin no GDM..."
-mkdir -p /etc/gdm3
-cat > /etc/gdm3/daemon.conf << 'GDMCONF'
-[daemon]
-AutomaticLoginEnable=true
-AutomaticLogin=liveuser
-WaylandEnable=true
+echo "==> Configurando autologin no SDDM..."
+mkdir -p /etc/sddm.conf.d
+cat > /etc/sddm.conf.d/autologin.conf << 'SDDMCONF'
+[Autologin]
+User=liveuser
+Session=plasma.desktop
+Relogin=false
 
-[security]
-
-[xdmcp]
-
-[chooser]
-
-[debug]
-GDMCONF
+[General]
+Numlock=on
+SDDMCONF
 
 echo "==> Definindo sessão padrão do liveuser (Plasma Wayland, com fallback X11)..."
 mkdir -p /var/lib/AccountsService/users
@@ -252,18 +250,7 @@ SystemAccount=false
 ACCOUNTS
 
 echo "==> Habilitando serviços de boot..."
-# CORREÇÃO: o pacote gdm3 no Debian não fornece mais uma unit chamada
-# "gdm3.service" — a unit real chama-se "gdm.service" (gdm3.service, quando
-# existe, é apenas um alias). "systemctl enable gdm3" falhava aqui com
-# "Unit gdm3.service could not be found", o que abortava o build inteiro
-# por causa do "set -e". Agora detectamos o nome correto da unit.
-if systemctl list-unit-files | grep -q '^gdm\.service'; then
-    systemctl enable gdm.service
-elif systemctl list-unit-files | grep -q '^gdm3\.service'; then
-    systemctl enable gdm3.service
-else
-    echo "AVISO: nenhuma unit do GDM encontrada para habilitar." >&2
-fi
+systemctl enable sddm.service
 
 systemctl enable NetworkManager
 systemctl enable accounts-daemon
