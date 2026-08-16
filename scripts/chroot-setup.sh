@@ -252,7 +252,7 @@ SystemAccount=false
 ACCOUNTS
 
 echo "==> Habilitando serviços de boot..."
-# CORREÇÃO: o pacote gdm3 no Debian/trixie não fornece mais uma unit chamada
+# CORREÇÃO: o pacote gdm3 no Debian não fornece mais uma unit chamada
 # "gdm3.service" — a unit real chama-se "gdm.service" (gdm3.service, quando
 # existe, é apenas um alias). "systemctl enable gdm3" falhava aqui com
 # "Unit gdm3.service could not be found", o que abortava o build inteiro
@@ -272,39 +272,42 @@ systemctl enable dbus
 echo "==> Identidade do sistema..."
 cat > /etc/os-release << 'OSRELEASE'
 NAME="NexiliumOS"
-VERSION="1.0"
+VERSION="1.0 (Sid)"
 ID=nexiliumos
 ID_LIKE=debian
-PRETTY_NAME="NexiliumOS 1.0"
+PRETTY_NAME="NexiliumOS 1.0 (Sid)"
 HOME_URL="https://github.com/zanfss0/NexiliumOS"
 OSRELEASE
 
 echo "==> Garantindo sources.list correto no live..."
 cat > /etc/apt/sources.list << 'SOURCES'
-deb http://deb.debian.org/debian trixie main contrib non-free non-free-firmware
-deb http://security.debian.org/debian-security trixie-security main
-deb http://deb.debian.org/debian trixie-updates main
+deb http://deb.debian.org/debian sid main contrib non-free non-free-firmware
 SOURCES
 
 echo "==> Atualizando índice do apt (sources.list mudou, senão contrib/non-free-firmware não aparecem)..."
 apt-get update
 
-echo "==> Aceleração gráfica em VirtualBox: nada a instalar aqui."
-# Os pacotes virtualbox-guest-utils / virtualbox-guest-x11 / virtualbox-guest-dkms
-# NÃO existem no Debian 13 (trixie) estável — só existem no repositório "sid"
-# (a Debian Wiki confirma: pacotes do VirtualBox não são oferecidos em stable
-# por falta de suporte de segurança do upstream). Tentar instalá-los aqui
-# sempre falhava com "Unable to locate package" e derrubava o build inteiro.
+echo "==> Aceleração gráfica em VirtualBox: nada a instalar aqui (por enquanto)."
+# ATUALIZAÇÃO (migração pro sid): os pacotes virtualbox-guest-utils /
+# virtualbox-guest-x11 / virtualbox-guest-dkms JÁ EXISTEM no repositório
+# sid — a restrição abaixo, que motivou não instalá-los, valia só pro
+# Debian stable/trixie. Ou seja, essa limitação não existe mais; dá pra
+# adicionar esses pacotes ao packages.list se quiser VBoxService completo
+# (clipboard compartilhado, drag-and-drop, sincronismo de horário) em vez
+# de só mouse integration/aceleração básica.
+#
+# Motivo original de não instalar (não se aplica mais no sid, mantido
+# como contexto histórico):
+# os pacotes NÃO existiam no Debian 13 (trixie) estável — só existiam no
+# repositório "sid" (a Debian Wiki confirma: pacotes do VirtualBox não são
+# oferecidos em stable por falta de suporte de segurança do upstream).
+# Tentar instalá-los no trixie sempre falhava com "Unable to locate
+# package" e derrubava o build inteiro.
 #
 # O kernel do Debian já traz embutidos os módulos vboxguest/vboxvideo/vboxsf
 # (o pacote virtual "virtualbox-guest-modules" já é satisfeito pelo pacote
 # linux-image-amd64 normal), então mouse integration e aceleração de vídeo
-# básica em VM já funcionam sem pacote nenhum. O que fica faltando é o
-# VBoxService (clipboard compartilhado, drag-and-drop, sincronismo de
-# horário) — se quiserem isso no futuro, dá pra instalar via o pacote
-# "virtualbox-guest-additions-iso" (esse sim existe no trixie) montando a
-# ISO oficial e rodando o instalador dela, ou habilitando o repo Fast Track
-# da Debian (https://fasttrack.debian.net/) especificamente pra isso.
+# básica em VM já funcionam sem pacote nenhum mesmo sem o VBoxService.
 
 echo "==> Forçando target gráfico..."
 systemctl set-default graphical.target
