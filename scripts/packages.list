@@ -40,8 +40,12 @@ PACKAGES=(
     gsettings-desktop-schemas
     gnome-keyring
 
-    # Display Manager: GDM
-    gdm3
+    # Display Manager: SDDM
+    # (nativo do KDE, sem nenhuma dependência do GNOME — gdm3 no sid
+    # agora depende do gnome-shell por causa da transição gnome-shell-50,
+    # o que puxaria a pilha inteira do GNOME só pra mostrar login numa
+    # distro que é KDE por padrão. SDDM evita isso de vez.)
+    sddm
 
     # Suporte gráfico (Xorg/Xwayland + fallback de renderização)
     xserver-xorg
