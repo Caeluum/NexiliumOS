@@ -18,7 +18,7 @@
 #   alternativa é usar o módulo "packagechooser" em modo exclusive — mas
 #   aí perde o auto-skip-quando-offline, que foi o requisito principal.
 # - Confirme se "task-budgie-desktop" existe nos repositórios Debian
-#   trixie que você está usando (pacote de metagrupo, pode variar).
+#   sid que você está usando (pacote de metagrupo, pode variar).
 
 - name: "MATE"
   description: "Ambiente clássico, leve e estável, baseado no GNOME 2."
