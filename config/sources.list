@@ -1,3 +1,5 @@
-deb http://deb.debian.org/debian trixie main contrib non-free non-free-firmware
-deb http://security.debian.org/debian-security trixie-security main
-deb http://deb.debian.org/debian trixie-updates main
+# Sid (unstable) não tem as suites "-security" e "-updates" separadas
+# que o stable/trixie tem — no sid, tudo (inclusive correções de
+# segurança) entra direto na suite principal. Por isso aqui é só uma
+# linha, ao contrário do sources.list do trixie que tinha três.
+deb http://deb.debian.org/debian sid main contrib non-free non-free-firmware
